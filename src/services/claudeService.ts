@@ -1,12 +1,24 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type { Identity, DesignEvent, FurnitureItem, Inference, DecisionLedgerData } from '../types'
 import { dreamItems } from '../data/dreamItems'
 
-function getClient() {
-  return new Anthropic({
-    apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY ?? '',
-    dangerouslyAllowBrowser: true,
+async function callClaude(prompt: string): Promise<string> {
+  const response = await fetch('/api/claude/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-opus-4-6',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+    }),
   })
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err?.error?.message ?? `HTTP ${response.status}`)
+  }
+
+  const data = await response.json()
+  return data.content[0].text
 }
 
 // ── Stage 4: Generate inferences ────────────────────────────────────────────
@@ -44,24 +56,19 @@ ${eventsText || '（使用者未進行任何操作）'}
 【最終室內配置家具】
 ${finalText}
 
-請生成 4~5 條「決策推論」，每條要求：
-1. 具體引用曾操作過的家具或最終配置
-2. 點出夢幻條件與身分限制之間的取捨張力
-3. 繁體中文，語氣客觀但帶洞察感
-4. 以「系統觀察到您」開頭
+請生成 4 條「決策推論」，每條要求：
+1. 以「系統觀察到您」開頭
+2. 具體指出一個家具或操作行為，點出其背後的取捨
+3. 全文控制在 30 字以內，言簡意賅
+4. 繁體中文
 
 僅回傳純 JSON 陣列，不含 markdown 或其他文字：
 [{"id":"1","text":"系統觀察到您..."},{"id":"2","text":"..."}]`
 
-    const response = await getClient().messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: prompt }],
-  })
-
-  const raw = (response.content[0] as { type: string; text: string }).text.trim()
+  const raw = (await callClaude(prompt)).trim()
+    .replace(/^```json\s*/i, '').replace(/```$/, '').trim()
   const parsed = JSON.parse(raw) as { id: string; text: string }[]
-  return parsed.map((item) => ({ ...item, confirmed: null }))
+  return parsed.map((item) => ({ ...item, rating: null }))
 }
 
 // ── Stage 5: Generate decision ledger ───────────────────────────────────────
@@ -78,16 +85,16 @@ export async function generateLedger(params: {
     .join('、')
 
   const confirmed = inferences
-    .filter((i) => i.confirmed === true)
-    .map((i) => `✓ ${i.text}`)
+    .filter((i) => (i.rating ?? 0) >= 4)
+    .map((i) => `[精準度${i.rating}/5] ${i.text}`)
     .join('\n')
 
   const corrected = inferences
-    .filter((i) => i.confirmed === false && i.userCorrection)
-    .map((i) => `✗ AI推論：「${i.text}」→ 使用者修正：「${i.userCorrection}」`)
+    .filter((i) => (i.rating ?? 5) <= 2 && i.userCorrection)
+    .map((i) => `[精準度${i.rating}/5] AI推論：「${i.text}」→ 使用者修正：「${i.userCorrection}」`)
     .join('\n')
 
-  const prompt = `你是一位空間哲學家。根據以下使用者確認與修正過的決策推論，生成一份「決策分類帳」，深刻揭示其空間使用的核心價值觀。
+  const prompt = `你是一位空間設計分析師，同時熟悉台灣建築法規。根據以下使用者的設計資料，生成「決策分類帳」。
 
 【使用者身分】${identity.label}
 【夢幻清單】${dreamLabels}${customDream ? `（另：${customDream}）` : ''}
@@ -98,20 +105,28 @@ ${confirmed || '（無）'}
 【使用者修正的推論】
 ${corrected || '（無）'}
 
-請生成「決策分類帳」，要求：
-- values：前三名核心價值觀，label 不超過 4 字，reason 一句說明
-- decisionPattern：2~3 句分析使用者在限制下的決策模式
-- spacePhilosophy：詩意的 2~3 句，描述使用者的空間哲學
+【參考法規標準（台灣建築技術規則）】
+- 居室最小面積：6 平方公尺
+- 最低樓高：2.1 公尺（一般居室建議 2.4 公尺以上）
+- 採光：開窗面積需達居室面積 1/8 以上
+- 通風：開口面積需達居室面積 1/10 以上
+- 本案套房面積：15 平方公尺（僅供 1 人居住之最低標準邊界）
+
+請生成「決策分類帳」，包含四個部分：
+1. values：前三名核心價值觀，label 不超過 4 字，reason 一句說明（20 字內）
+2. designRationality：評估設計合理性
+   - rating：「合理」「尚可」「待改善」三選一
+   - assessment：1 句總體評估（25 字內）
+   - issues：具體問題列表（若無問題則空陣列），每項不超過 20 字
+3. designInterpretation：1~2 句有溫度的整體詮釋
+4. spaceParameters：3~5 條「專屬空間參數」，把使用者的感性選擇翻譯成建築語彙
+   - label：參數名稱，格式如「絕對限制 01」「機能佔比 02」「彈性空間 03」
+   - value：具體的建築/空間描述（30 字內），如「無障礙迴轉半徑 150cm 優先級最高」
 
 僅回傳純 JSON，不含 markdown：
-{"values":[{"rank":1,"label":"...","reason":"..."},{"rank":2,"label":"...","reason":"..."},{"rank":3,"label":"...","reason":"..."}],"decisionPattern":"...","spacePhilosophy":"..."}`
+{"values":[{"rank":1,"label":"...","reason":"..."},{"rank":2,"label":"...","reason":"..."},{"rank":3,"label":"...","reason":"..."}],"designRationality":{"rating":"合理","assessment":"...","issues":[]},"designInterpretation":"...","spaceParameters":[{"label":"絕對限制 01","value":"..."},{"label":"機能佔比 02","value":"..."}]}`
 
-    const response = await getClient().messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: prompt }],
-  })
-
-  const raw = (response.content[0] as { type: string; text: string }).text.trim()
+  const raw = (await callClaude(prompt)).trim()
+    .replace(/^```json\s*/i, '').replace(/```$/, '').trim()
   return JSON.parse(raw) as DecisionLedgerData
 }

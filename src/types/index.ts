@@ -37,12 +37,13 @@ export interface DesignEvent {
 export interface Inference {
   id: string
   text: string
-  confirmed: boolean | null
-  userCorrection?: string
+  rating: number | null   // 1–5，null 表示尚未評分
+  userCorrection?: string // 可選的文字修正
 }
 
 export interface DecisionLedgerData {
   values: { rank: number; label: string; reason: string }[]
-  decisionPattern: string
-  spacePhilosophy: string
+  designRationality: { rating: string; assessment: string; issues: string[] }
+  designInterpretation: string
+  spaceParameters: { label: string; value: string }[]
 }

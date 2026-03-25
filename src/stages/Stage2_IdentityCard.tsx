@@ -50,7 +50,7 @@ export function Stage2_IdentityCard() {
               transition={{ delay: 0.4 }}
               className="text-white/50 text-base"
             >
-              選擇你的微型獨居身分，然後用 15 坪完成你的夢幻清單。
+              選擇你的微型獨居身分，然後用 15 平方公尺完成你的夢幻清單。
             </motion.p>
           </motion.div>
 

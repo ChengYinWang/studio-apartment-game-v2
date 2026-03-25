@@ -31,8 +31,9 @@ export function Stage5_DecisionLedger() {
           values: [
             { rank: 1, label: '錯誤', reason: '請確認 API Key 後重試。' },
           ],
-          decisionPattern: '無法生成分析。',
-          spacePhilosophy: '無法生成分析。',
+          designRationality: { rating: '待改善', assessment: '無法生成分析。', issues: [] },
+          designInterpretation: '無法生成分析。',
+          spaceParameters: [],
         })
       })
       .finally(() => setIsGeneratingLedger(false))
@@ -99,20 +100,71 @@ export function Stage5_DecisionLedger() {
                 </div>
               </motion.section>
 
-              {/* Decision pattern */}
+              {/* Design rationality */}
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
                 className="bg-[#1a1a2e] rounded-2xl border border-white/8 p-6"
               >
-                <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-3">
-                  決策模式分析
+                <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-4">
+                  設計合理性
                 </h2>
-                <p className="text-sm text-white/70 leading-relaxed">{ledgerData.decisionPattern}</p>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    ledgerData.designRationality.rating === '合理'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : ledgerData.designRationality.rating === '尚可'
+                      ? 'bg-amber-500/20 text-amber-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {ledgerData.designRationality.rating}
+                  </span>
+                </div>
+                <p className="text-sm text-white/70 leading-relaxed mb-3">
+                  {ledgerData.designRationality.assessment}
+                </p>
+                {ledgerData.designRationality.issues.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {ledgerData.designRationality.issues.map((issue, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-white/50">
+                        <span className="text-red-400 mt-0.5 flex-shrink-0">▸</span>
+                        {issue}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </motion.section>
 
-              {/* Space philosophy */}
+              {/* Space parameters */}
+              {ledgerData.spaceParameters?.length > 0 && (
+                <motion.section
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 }}
+                  className="bg-[#1a1a2e] rounded-2xl border border-white/8 p-6"
+                >
+                  <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-4">
+                    專屬空間參數
+                  </h2>
+                  <div className="space-y-3">
+                    {ledgerData.spaceParameters.map((p, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -16 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.35 + i * 0.08 }}
+                        className="flex gap-3"
+                      >
+                        <span className="text-xs font-mono text-cyan-500/70 mt-0.5 flex-shrink-0 w-28">{p.label}</span>
+                        <span className="text-sm text-white/65 leading-snug">{p.value}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.section>
+              )}
+
+              {/* Design interpretation */}
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -124,9 +176,9 @@ export function Stage5_DecisionLedger() {
                   style={{ backgroundImage: 'repeating-linear-gradient(45deg, #f59e0b 0, #f59e0b 1px, transparent 0, transparent 50%)', backgroundSize: '12px 12px' }}
                 />
                 <h2 className="text-xs font-bold text-amber-500/60 uppercase tracking-widest mb-3">
-                  空間哲學小結
+                  設計說明
                 </h2>
-                <p className="text-sm text-amber-200/80 leading-relaxed italic">{ledgerData.spacePhilosophy}</p>
+                <p className="text-sm text-amber-200/80 leading-relaxed italic">{ledgerData.designInterpretation}</p>
               </motion.section>
 
               {/* Identity badge */}
@@ -138,7 +190,7 @@ export function Stage5_DecisionLedger() {
                   className="flex items-center gap-3 p-4 rounded-xl bg-white/3 border border-white/5 text-sm text-white/40"
                 >
                   <span className="text-xl">{selectedIdentity.emoji}</span>
-                  <span>以「<strong className="text-white/60">{selectedIdentity.label}</strong>」身分完成 15 坪挑戰</span>
+                  <span>以「<strong className="text-white/60">{selectedIdentity.label}</strong>」身分完成 15 平方公尺挑戰</span>
                 </motion.div>
               )}
 

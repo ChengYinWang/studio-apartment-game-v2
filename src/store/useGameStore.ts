@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
 import type { Identity, FurnitureItem, DesignEvent, Inference, DecisionLedgerData } from '../types'
-import { makeDefaultFurniture } from '../data/baseDesign'
+import { makeDefaultFurniture, DEFAULT_BATH_DIV_X, DEFAULT_BATH_DIV_Y } from '../data/baseDesign'
 
 interface GameStore {
   stage: number
@@ -17,6 +17,8 @@ interface GameStore {
   furniture: FurnitureItem[]
   designEvents: DesignEvent[]
   pendingCatalogId: string | null  // catalogId waiting to be placed
+  bathDivX: number
+  bathDivY: number
 
   // Stage 4
   inferences: Inference[]
@@ -42,11 +44,12 @@ interface GameStore {
   addFurniture: (item: Omit<FurnitureItem, 'id'>) => void
   moveFurniture: (id: string, x: number, y: number) => void
   removeFurniture: (id: string) => void
+  setBathDiv: (x: number, y: number) => void
 
   // Stage 4
   setInferences: (inferences: Inference[]) => void
   setIsAnalyzing: (v: boolean) => void
-  confirmInference: (id: string, confirmed: boolean, correction?: string) => void
+  rateInference: (id: string, rating: number, correction?: string) => void
 
   // Stage 5
   setLedgerData: (data: DecisionLedgerData) => void
@@ -64,6 +67,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   furniture: makeDefaultFurniture(),
   designEvents: [],
   pendingCatalogId: null,
+  bathDivX: DEFAULT_BATH_DIV_X,
+  bathDivY: DEFAULT_BATH_DIV_Y,
 
   inferences: [],
   isAnalyzing: false,
@@ -81,11 +86,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     furniture: makeDefaultFurniture(),
     designEvents: [],
     pendingCatalogId: null,
+    bathDivX: DEFAULT_BATH_DIV_X,
+    bathDivY: DEFAULT_BATH_DIV_Y,
     inferences: [],
     isAnalyzing: false,
     ledgerData: null,
     isGeneratingLedger: false,
   }),
+
 
   toggleDream: (id) => set((state) => ({
     selectedDreams: state.selectedDreams.includes(id)
@@ -141,13 +149,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }))
   },
 
+  setBathDiv: (x, y) => set({ bathDivX: x, bathDivY: y }),
+
   setInferences: (inferences) => set({ inferences }),
   setIsAnalyzing: (v) => set({ isAnalyzing: v }),
 
-  confirmInference: (id, confirmed, correction) =>
+  rateInference: (id, rating, correction) =>
     set((state) => ({
       inferences: state.inferences.map((inf) =>
-        inf.id === id ? { ...inf, confirmed, userCorrection: correction } : inf
+        inf.id === id ? { ...inf, rating, userCorrection: correction } : inf
       ),
     })),
 

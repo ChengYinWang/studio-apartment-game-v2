@@ -4,6 +4,39 @@ import { StageLayout, PageMotion } from '../components/StageLayout'
 import { useGameStore } from '../store/useGameStore'
 import { generateInferences } from '../services/claudeService'
 
+const STAR_LABELS = ['', '偏差', '部分準確', '大致正確', '相當準確', '完全命中']
+
+function StarRating({
+  value,
+  onChange,
+}: {
+  value: number | null
+  onChange: (v: number) => void
+}) {
+  const [hovered, setHovered] = useState<number | null>(null)
+  const active = hovered ?? value ?? 0
+
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          onMouseEnter={() => setHovered(n)}
+          onMouseLeave={() => setHovered(null)}
+          onClick={() => onChange(n)}
+          className="text-xl leading-none transition-transform hover:scale-110"
+          title={STAR_LABELS[n]}
+        >
+          <span className={n <= active ? 'text-amber-400' : 'text-white/20'}>★</span>
+        </button>
+      ))}
+      {active > 0 && (
+        <span className="ml-1.5 text-xs text-white/40">{STAR_LABELS[active]}</span>
+      )}
+    </div>
+  )
+}
+
 export function Stage4_AIAnalysis() {
   const {
     selectedIdentity,
@@ -15,12 +48,11 @@ export function Stage4_AIAnalysis() {
     isAnalyzing,
     setInferences,
     setIsAnalyzing,
-    confirmInference,
+    rateInference,
     goToStage,
   } = useGameStore()
 
   const [corrections, setCorrections] = useState<Record<string, string>>({})
-  const [openCorrection, setOpenCorrection] = useState<string | null>(null)
 
   useEffect(() => {
     if (inferences.length > 0 || isAnalyzing || !selectedIdentity) return
@@ -36,24 +68,16 @@ export function Stage4_AIAnalysis() {
       .catch((err) => {
         console.error(err)
         const msg = err?.message ?? err?.toString() ?? '未知錯誤'
-        setInferences([{
-          id: '0',
-          text: `AI 分析時發生錯誤：${msg}`,
-          confirmed: null,
-        }])
+        setInferences([{ id: '0', text: `AI 分析時發生錯誤：${msg}`, rating: null }])
       })
       .finally(() => setIsAnalyzing(false))
   }, [])
 
-  const allAnswered = inferences.length > 0 && inferences.every((i) => i.confirmed !== null)
+  const allRated = inferences.length > 0 && inferences.every((i) => i.rating !== null)
 
-  const handleConfirm = (id: string) => confirmInference(id, true)
-  const handleCorrect = (id: string) => {
-    const correction = corrections[id] ?? ''
-    if (correction.trim()) {
-      confirmInference(id, false, correction.trim())
-      setOpenCorrection(null)
-    }
+  const handleRate = (id: string, rating: number) => {
+    const correction = corrections[id]?.trim() || undefined
+    rateInference(id, rating, correction)
   }
 
   return (
@@ -65,7 +89,7 @@ export function Stage4_AIAnalysis() {
             <div className="text-4xl mb-3">🔍</div>
             <h1 className="text-2xl font-extrabold text-white mb-2">AI 決策推論</h1>
             <p className="text-white/40 text-sm">
-              系統分析了你的設計過程，以下是觀察到的決策模式。
+              系統分析了你的設計過程。請為每條推論的精準度打分（必填）。
             </p>
           </motion.div>
 
@@ -86,9 +110,14 @@ export function Stage4_AIAnalysis() {
             <AnimatePresence>
               <div className="space-y-4">
                 {inferences.map((inf, i) => {
-                  const isDone = inf.confirmed !== null
-                  const isCorrection = inf.confirmed === false
-                  const isOpenInput = openCorrection === inf.id
+                  const isRated = inf.rating !== null
+                  const ratingColor =
+                    (inf.rating ?? 0) >= 4
+                      ? 'bg-violet-950/30 border-violet-600/40'
+                      : (inf.rating ?? 0) >= 3
+                      ? 'bg-blue-950/30 border-blue-600/40'
+                      : 'bg-amber-950/30 border-amber-600/40'
+
                   return (
                     <motion.div
                       key={inf.id}
@@ -96,67 +125,37 @@ export function Stage4_AIAnalysis() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.1 }}
                       className={`rounded-2xl border p-5 transition-all ${
-                        isDone
-                          ? isCorrection
-                            ? 'bg-amber-950/30 border-amber-600/40'
-                            : 'bg-violet-950/30 border-violet-600/40'
-                          : 'bg-[#1a1a2e] border-white/8'
+                        isRated ? ratingColor : 'bg-[#1a1a2e] border-white/8'
                       }`}
                     >
-                      <p className="text-sm text-white/80 leading-relaxed mb-4">{inf.text}</p>
+                      <p className="text-sm text-white/85 leading-relaxed mb-4">{inf.text}</p>
 
-                      {!isDone ? (
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => handleConfirm(inf.id)}
-                            className="w-full py-2 text-xs font-semibold rounded-xl bg-violet-800/50 hover:bg-violet-700/60 text-violet-200 transition-colors"
-                          >
-                            ✅ 沒錯，推論正確
-                          </button>
-                          {!isOpenInput ? (
-                            <button
-                              onClick={() => setOpenCorrection(inf.id)}
-                              className="w-full py-2 text-xs font-semibold rounded-xl bg-white/5 hover:bg-white/10 text-white/50 transition-colors"
-                            >
-                              ✏️ 不，其實是因為…
-                            </button>
-                          ) : (
-                            <div className="space-y-2">
-                              <textarea
-                                value={corrections[inf.id] ?? ''}
-                                onChange={(e) => setCorrections((prev) => ({ ...prev, [inf.id]: e.target.value }))}
-                                placeholder="說說你真正的想法…"
-                                rows={2}
-                                autoFocus
-                                className="w-full bg-white/5 rounded-xl px-3 py-2 text-sm text-white/70 placeholder-white/20 outline-none border border-white/10 focus:border-amber-500 resize-none transition-colors"
-                              />
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleCorrect(inf.id)}
-                                  disabled={!(corrections[inf.id] ?? '').trim()}
-                                  className="flex-1 py-1.5 text-xs font-semibold rounded-xl bg-amber-600/60 hover:bg-amber-500/70 text-amber-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  送出修正
-                                </button>
-                                <button
-                                  onClick={() => setOpenCorrection(null)}
-                                  className="px-3 py-1.5 text-xs rounded-xl bg-white/5 text-white/40 hover:bg-white/10 transition-colors"
-                                >
-                                  取消
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-xs">
-                          {isCorrection ? (
-                            <span className="text-amber-400">✏️ 你的修正：{inf.userCorrection}</span>
-                          ) : (
-                            <span className="text-violet-400">✅ 已確認</span>
-                          )}
-                        </div>
-                      )}
+                      {/* Star rating */}
+                      <div className="mb-3">
+                        <p className="text-xs text-white/30 mb-1.5">推論精準度</p>
+                        <StarRating
+                          value={inf.rating}
+                          onChange={(rating) => handleRate(inf.id, rating)}
+                        />
+                      </div>
+
+                      {/* Optional correction */}
+                      <div>
+                        <textarea
+                          value={corrections[inf.id] ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setCorrections((prev) => ({ ...prev, [inf.id]: val }))
+                            // 如果已評分且有文字，即時更新修正
+                            if (inf.rating !== null) {
+                              rateInference(inf.id, inf.rating, val.trim() || undefined)
+                            }
+                          }}
+                          placeholder="（可選）我實際上覺得…"
+                          rows={1}
+                          className="w-full bg-white/5 rounded-xl px-3 py-2 text-xs text-white/60 placeholder-white/20 outline-none border border-white/8 focus:border-white/25 resize-none transition-colors"
+                        />
+                      </div>
                     </motion.div>
                   )
                 })}
@@ -165,7 +164,7 @@ export function Stage4_AIAnalysis() {
           )}
 
           {/* Proceed button */}
-          {allAnswered && (
+          {allRated && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
