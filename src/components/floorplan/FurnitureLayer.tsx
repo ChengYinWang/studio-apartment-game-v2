@@ -2,7 +2,6 @@ import { useRef } from 'react'
 import { Layer, Rect, Text, Group, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { useGameStore } from '../../store/useGameStore'
-import { useSnapToGrid } from '../../hooks/useSnapToGrid'
 
 interface Props {
   selectedId: string | null
@@ -11,7 +10,6 @@ interface Props {
 
 export function FurnitureLayer({ selectedId, onSelect }: Props) {
   const { furniture, moveFurniture, removeFurniture } = useGameStore()
-  const { snapPoint } = useSnapToGrid()
   const transformerRef = useRef<Konva.Transformer>(null)
   const nodeRefs = useRef<Map<string, Konva.Group>>(new Map())
 
@@ -25,10 +23,7 @@ export function FurnitureLayer({ selectedId, onSelect }: Props) {
   }
 
   const handleDragEnd = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
-    const snapped = snapPoint(e.target.x(), e.target.y())
-    e.target.x(snapped.x)
-    e.target.y(snapped.y)
-    moveFurniture(id, snapped.x, snapped.y)
+    moveFurniture(id, e.target.x(), e.target.y())
   }
 
   return (

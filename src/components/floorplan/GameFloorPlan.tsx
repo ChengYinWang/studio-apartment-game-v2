@@ -6,7 +6,6 @@ import { WallLayer } from './WallLayer'
 import { OpeningLayer } from './OpeningLayer'
 import { FurnitureLayer } from './FurnitureLayer'
 import { useGameStore } from '../../store/useGameStore'
-import { useSnapToGrid } from '../../hooks/useSnapToGrid'
 import { furnitureCatalog } from '../../data/furniture'
 
 const GRID = 20
@@ -20,7 +19,6 @@ export function GameFloorPlan({ selectedId, onSelect }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: 800, height: 600 })
   const { pendingCatalogId, addFurniture, setPendingCatalogId } = useGameStore()
-  const { snapPoint } = useSnapToGrid()
 
   useEffect(() => {
     const update = () => {
@@ -55,10 +53,10 @@ export function GameFloorPlan({ selectedId, onSelect }: Props) {
     if (pendingCatalogId) {
       const catalog = furnitureCatalog.find((c) => c.id === pendingCatalogId)
       if (!catalog) return
-      const pos = snapPoint(raw.x - catalog.defaultWidth / 2, raw.y - catalog.defaultHeight / 2)
       addFurniture({
         catalogId: catalog.id,
-        x: pos.x, y: pos.y,
+        x: raw.x - catalog.defaultWidth / 2,
+        y: raw.y - catalog.defaultHeight / 2,
         width: catalog.defaultWidth,
         height: catalog.defaultHeight,
         rotation: 0,

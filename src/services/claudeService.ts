@@ -2,9 +2,15 @@ import type { Identity, DesignEvent, FurnitureItem, Inference, DecisionLedgerDat
 import { dreamItems } from '../data/dreamItems'
 
 async function callClaude(prompt: string): Promise<string> {
-  const response = await fetch('/api/claude/v1/messages', {
+  const apiKey = import.meta.env.VITE_CLAUDE_API_KEY
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
     body: JSON.stringify({
       model: 'claude-opus-4-6',
       max_tokens: 2048,
